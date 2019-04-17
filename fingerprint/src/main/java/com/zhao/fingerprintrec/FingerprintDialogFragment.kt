@@ -3,6 +3,7 @@ package com.zhao.fingerprintrec
 import android.annotation.TargetApi
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.hardware.fingerprint.FingerprintManager
 import android.os.Bundle
 import android.support.v4.app.DialogFragment
@@ -23,7 +24,7 @@ class FingerprintDialogFragment<T: Activity> : DialogFragment() {
 
     private var mCancellationSignal: CancellationSignal? = null
 
-    private var mCipher: Cipher? = null
+    private lateinit var mCipher: Cipher
 
     private var mActivity: T? = null
 
@@ -34,10 +35,6 @@ class FingerprintDialogFragment<T: Activity> : DialogFragment() {
      */
     private var isSelfCancelled: Boolean = false
 
-    fun setCipher(cipher: Cipher) {
-        mCipher = cipher
-    }
-
     override fun onAttach(context: Context?) {
         super.onAttach(context)
         mActivity = activity as T?
@@ -47,11 +44,12 @@ class FingerprintDialogFragment<T: Activity> : DialogFragment() {
         super.onCreate(savedInstanceState)
         fingerprintManager = FingerprintManagerCompat.from(mActivity!!)
         setStyle(DialogFragment.STYLE_NORMAL, android.R.style.Theme_Material_Light_Dialog)
+        mCipher = FingerRecoUtil.getCipher()
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val v = inflater.inflate(R.layout.fingerprint_dialog, container, false)
-        errorMsg = v.findViewById(R.id.error_msg)
+        errorMsg = v.findViewById<TextView>(R.id.error_msg)
         v.findViewById<TextView>(R.id.cancel).setOnClickListener {
             dismiss()
             stopListening()
@@ -62,7 +60,7 @@ class FingerprintDialogFragment<T: Activity> : DialogFragment() {
     override fun onResume() {
         super.onResume()
         // 开始指纹认证监听
-        startListening(mCipher)
+        startListening()
     }
 
     override fun onPause() {
@@ -70,12 +68,11 @@ class FingerprintDialogFragment<T: Activity> : DialogFragment() {
         // 停止指纹认证监听
         stopListening()
     }
-
-    private fun startListening(cipher: Cipher?) {
+    private fun startListening() {
         isSelfCancelled = false
         mCancellationSignal = CancellationSignal()
         fingerprintManager!!.authenticate(
-            FingerprintManagerCompat.CryptoObject(cipher!!),
+            FingerprintManagerCompat.CryptoObject(mCipher),
             0,
             mCancellationSignal,
             object : FingerprintManagerCompat.AuthenticationCallback() {
@@ -92,7 +89,6 @@ class FingerprintDialogFragment<T: Activity> : DialogFragment() {
                 override fun onAuthenticationHelp(helpCode: Int, helpString: CharSequence?) {
                     errorMsg!!.text = helpString
                 }
-
                 override fun onAuthenticationSucceeded(result: FingerprintManagerCompat.AuthenticationResult?) {
                     Toast.makeText(mActivity, "指纹认证成功", Toast.LENGTH_SHORT).show()
                     dismiss()
